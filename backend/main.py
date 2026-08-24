@@ -1,4 +1,5 @@
 import logging
+import os
 import math
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -25,7 +26,7 @@ from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 logger = logging.getLogger("pashuraksha")
 
 # --- DATABASE SETUP ---
-DATABASE_URL = "sqlite:///./surveillance.db"
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./surveillance.db")
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
