@@ -27,7 +27,8 @@ logger = logging.getLogger("pashuraksha")
 
 # --- DATABASE SETUP ---
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./surveillance.db")
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args, pool_pre_ping=True, pool_size=3, max_overflow=2)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
