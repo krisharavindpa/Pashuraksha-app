@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pashuraksha-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "pashuraksha-app", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

@@ -1,1 +1,891 @@
+/* incovid19.org uses "archia", a licensed geometric sans. Archivo is the
+ * closest freely-available match in weight and proportion; Inter carries the
+ * tabular figures the stat cards and table need.
+ * Must stay the first statement in the file: @import rules have to precede
+ * all other rules, and Tailwind expands into rules below. */
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;900&family=Inter:wght@400;500;600;700;900&display=swap");
+
 @import "tailwindcss";
+
+/* PashuRaksha design system.
+ *
+ * Ported from the incovid19.org / covid19india.org surveillance dashboard: the
+ * statistic palette, the alpha ramp used for tints, the two-surface dark theme
+ * and the flat, borderless card treatment are all taken from that design so the
+ * outbreak view reads the way a public health tracker is expected to read.
+ *
+ * The statistic names are remapped to livestock surveillance:
+ *   confirmed -> reported    active -> active      other -> critical
+ *   recovered -> resolved    deceased -> mortality tested -> samples
+ *
+ * NOTE: this file used to be empty while main.jsx imported it, which meant the
+ * Tailwind directive below was missing and every utility class in the app was
+ * inert. The whole UI rendered unstyled.
+ */
+
+
+@theme {
+  --font-display: "Archivo", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-reported: #ff073a;
+  --color-active: #007bff;
+  --color-critical: #fd7e14;
+  --color-resolved: #28a745;
+  --color-mortality: #6c757d;
+  --color-samples: #4b1eaa;
+}
+
+/* ---------- THEME TOKENS ---------- */
+:root {
+  color-scheme: light;
+
+  /* Statistic palette (incovid19 exact values). */
+  --reported: #ff073a;
+  --active: #007bff;
+  --critical: #fd7e14;
+  --resolved: #28a745;
+  --mortality: #6c757d;
+  --samples: #4b1eaa;
+
+  /* Surfaces. Light mode is a single off-white with white cards. */
+  --bg: #f6f6f7;
+  --surface: #ffffff;
+  --surface-alt: #edeeef;
+  --hover: #e8e8e9;
+
+  --text: #1c1c28;
+  --text-muted: #6c757d;
+  --line: rgba(108, 117, 125, 0.125);
+
+  /* The alpha ramp the whole design leans on: 16/255, 32/255, 48/255, 80/255. */
+  --tint-06: 0.0627;
+  --tint-12: 0.1255;
+  --tint-19: 0.1882;
+  --tint-31: 0.3137;
+
+  --radius: 5px;
+  --radius-lg: 8px;
+  --shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  --map-filter: saturate(1.5);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #161625;
+  --surface: #1e1e30;
+  --surface-alt: #212130;
+  --hover: #262638;
+
+  --text: #f6f6f7;
+  --text-muted: #6c757d;
+  --line: rgba(108, 117, 125, 0.2);
+
+  --samples: #9673b9;
+  --shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+
+  /* incovid19 inverts the choropleth in dark mode rather than recolouring it,
+   * so a light-to-dark ramp stays a light-to-dark ramp against a dark ground. */
+  --map-filter: invert(1) hue-rotate(180deg) saturate(1.4);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.25s ease-in-out, color 0.25s ease-in-out;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Numbers must not jitter as they tick. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ---------- PER-STATISTIC TINTS ---------- */
+/* Every statistic gets the same four treatments, so a component only has to
+ * set `is-<statistic>` and pick from --stat / --stat-tint / --stat-soft. */
+.is-reported  { --stat: var(--reported);  --stat-rgb: 255, 7, 58; }
+.is-active    { --stat: var(--active);    --stat-rgb: 0, 123, 255; }
+.is-critical  { --stat: var(--critical);  --stat-rgb: 253, 126, 20; }
+.is-resolved  { --stat: var(--resolved);  --stat-rgb: 40, 167, 69; }
+.is-mortality { --stat: var(--mortality); --stat-rgb: 108, 117, 125; }
+.is-samples   { --stat: var(--samples);   --stat-rgb: 75, 30, 170; }
+
+:root[data-theme="dark"] .is-samples { --stat-rgb: 150, 115, 185; }
+
+[class*="is-"] {
+  --stat-tint: rgba(var(--stat-rgb), var(--tint-12));
+  --stat-tint-hover: rgba(var(--stat-rgb), var(--tint-19));
+  --stat-soft: rgba(var(--stat-rgb), 0.6);
+}
+
+/* ---------- APP SHELL ---------- */
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.Home {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+  /* Home-screen launches run under the iPhone home indicator; without this the
+     last table row sits beneath it and can't be scrolled clear. */
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 1.25rem;
+}
+
+.section-title {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.35s ease-out both;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- NAVBAR ---------- */
+.Navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  /* black-translucent status bar means the page paints under it on iOS. */
+  padding-top: calc(0.75rem + env(safe-area-inset-top));
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+}
+
+.Navbar .brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.Navbar .brand h1 {
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.Navbar .brand span {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.Navbar .nav-links {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius);
+  transition: background 0.15s ease-in-out, color 0.15s ease-in-out;
+  white-space: nowrap;
+}
+
+.nav-link:hover { background: rgba(108, 117, 125, 0.0627); }
+
+.nav-link.active {
+  background: rgba(108, 117, 125, 0.125);
+  color: var(--text);
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: rgba(108, 117, 125, 0.0627);
+  color: var(--text-muted);
+  transition: background 0.15s ease-in-out;
+}
+
+.icon-button:hover { background: rgba(108, 117, 125, 0.125); }
+
+/* ---------- LEVEL (stat cards) ---------- */
+.Level {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.level-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.6rem 0.3rem 0.7rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  transition: background 0.15s ease-in-out;
+  text-align: center;
+}
+
+.level-item:hover { background: var(--stat-tint); }
+
+/* The selected card marks which statistic the map and table are showing. */
+.level-item.selected {
+  background: var(--stat-tint);
+  box-shadow: inset 0 -3px 0 0 var(--stat);
+}
+
+.level-item h5 {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--stat);
+  overflow-wrap: break-word;
+}
+
+.level-item .delta {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--stat-soft);
+  min-height: 1rem;
+}
+
+.level-item h1 {
+  font-size: clamp(0.95rem, 3.4vw, 1.4rem);
+  font-weight: 700;
+  color: var(--stat);
+}
+
+/* ---------- MAP ---------- */
+.MapExplorer { position: relative; }
+
+.MapExplorer .panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.MapExplorer .panel h2 {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--stat);
+  transition: color 0.3s ease-in-out;
+  word-wrap: break-word;
+}
+
+.MapExplorer .panel .subline {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.MapExplorer .panel .headline {
+  font-size: 1.9rem;
+  font-weight: 900;
+  color: var(--stat);
+  line-height: 1;
+}
+
+.switch-type {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.toggle {
+  display: grid;
+  place-items: center;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  padding: 0 0.55rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: rgba(108, 117, 125, 0.0627);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  transition: background 0.15s ease-in-out, color 0.15s ease-in-out;
+}
+
+.toggle:hover { background: rgba(108, 117, 125, 0.125); }
+
+.toggle.is-highlighted {
+  background: var(--stat-tint);
+  color: var(--stat);
+}
+
+.map-button {
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: rgba(255, 193, 7, 0.125);
+  color: #fd7e14;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 0.5rem 0.7rem;
+  transition: background 0.2s ease-in-out;
+}
+
+.map-button:hover { background: rgba(255, 193, 7, 0.19); }
+
+.svg-parent {
+  position: relative;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.svg-parent svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  display: block;
+}
+
+/* The choropleth is filtered as a whole rather than recoloured per-region --
+ * this is how incovid19 keeps one colour ramp working in both themes. */
+#chart { filter: var(--map-filter); }
+
+.map-region {
+  cursor: pointer;
+  transition: fill 0.25s ease-in-out;
+}
+
+.map-region.clickable:hover { fill: var(--stat-tint-hover); }
+
+.map-region.is-highlighted { stroke-width: 1.6; }
+
+.map-bubble {
+  pointer-events: none;
+  transition: r 0.3s ease-in-out, opacity 0.25s ease-in-out;
+}
+
+.cluster-bubble { cursor: pointer; }
+
+.maplegend {
+  margin-top: 0.4rem;
+  user-select: none;
+}
+
+.maplegend text { fill: var(--text-muted); font-size: 9px; font-weight: 600; }
+
+.map-tooltip {
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+  min-width: 9rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  font-size: 0.72rem;
+  transform: translate(-50%, calc(-100% - 12px));
+}
+
+.map-tooltip .tt-name {
+  font-weight: 900;
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+}
+
+.map-tooltip .tt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  font-weight: 600;
+}
+
+.map-footnote {
+  margin-top: 0.75rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ---------- TABLE ---------- */
+.Table { width: 100%; }
+
+.table-scroll { overflow-x: auto; }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-align: right;
+  padding: 0.7rem 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.data-table th:first-child { text-align: left; }
+.data-table th:hover { background: var(--surface-alt); }
+.data-table th.sorted { color: var(--text); }
+
+.data-table td {
+  padding: 0.55rem 0.5rem;
+  text-align: right;
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.data-table td:first-child {
+  text-align: left;
+  font-weight: 700;
+  white-space: normal;
+}
+
+.data-table tbody tr.state-row { cursor: pointer; }
+.data-table tbody tr.state-row:hover { background: var(--surface-alt); }
+.data-table tbody tr.district-row { background: rgba(108, 117, 125, 0.04); }
+.data-table tbody tr.district-row td:first-child { padding-left: 1.75rem; font-weight: 500; }
+.data-table tbody tr.total-row { background: var(--surface-alt); font-weight: 900; }
+
+.cell-delta {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.expand-caret {
+  display: inline-block;
+  width: 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  transition: transform 0.2s ease-in-out;
+}
+
+.expand-caret.open { transform: rotate(90deg); }
+
+/* ---------- TIMESERIES ---------- */
+.Timeseries {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.75rem;
+}
+
+.trend-card {
+  border-radius: var(--radius);
+  background: var(--stat-tint);
+  padding: 0.6rem 0.7rem 0.35rem;
+}
+
+.trend-card h5 {
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--stat-soft);
+}
+
+.trend-card .trend-value {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--stat);
+  line-height: 1.2;
+}
+
+.trend-card svg { display: block; width: 100%; height: 54px; overflow: visible; }
+
+.pills { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+
+.pill {
+  border: 0;
+  border-radius: var(--radius);
+  background: rgba(108, 117, 125, 0.0627);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.35rem 0.6rem;
+  transition: background 0.15s ease-in-out, color 0.15s ease-in-out;
+}
+
+.pill:hover { background: rgba(108, 117, 125, 0.125); }
+.pill.selected { background: rgba(255, 193, 7, 0.19); color: #fd7e14; }
+
+/* ---------- FORMS ---------- */
+.field { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.field label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.input,
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.input:focus,
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--active);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.125);
+}
+
+.input.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.14em;
+}
+
+.btn {
+  border: 0;
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: rgba(108, 117, 125, 0.0627);
+  color: var(--text);
+  transition: background 0.15s ease-in-out, opacity 0.15s ease-in-out;
+}
+
+.btn:hover:not(:disabled) { background: rgba(108, 117, 125, 0.125); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary { background: var(--resolved); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #22913c; }
+.btn-danger { background: var(--reported); color: #fff; }
+.btn-danger:hover:not(:disabled) { background: #d80031; }
+
+.chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.35rem 0.7rem;
+  transition: all 0.15s ease-in-out;
+}
+
+.chip:hover { background: var(--surface-alt); }
+
+.chip.selected {
+  background: rgba(255, 7, 58, 0.125);
+  border-color: var(--reported);
+  color: var(--reported);
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  padding: 0.2rem 0.55rem;
+  background: var(--stat-tint);
+  color: var(--stat);
+}
+
+.banner {
+  border-radius: var(--radius);
+  padding: 0.7rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--stat-tint);
+  color: var(--stat);
+}
+
+/* ---------- FORM LAYOUT ---------- */
+.form-row-2,
+.form-row-3 {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.form-row-2 { grid-template-columns: 1fr 1fr; }
+.form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+/* ---------- MODAL ---------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(22, 22, 37, 0.55);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.15s ease-out both;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  width: min(26rem, 100%);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  padding: 1.5rem;
+  text-align: center;
+  animation: fadeInUp 0.2s ease-out both;
+}
+
+.modal .modal-icon {
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto 0.85rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 193, 7, 0.19);
+  font-size: 1.5rem;
+}
+
+.modal h3 { font-size: 1.1rem; font-weight: 900; margin-bottom: 0.4rem; }
+
+.modal p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 0 0 1.25rem;
+}
+
+/* ---------- PWA PROMPTS ---------- */
+.pwa-prompt {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 80;
+  width: min(30rem, calc(100% - 1.5rem));
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  border-left: 3px solid var(--stat);
+  font-size: 0.8rem;
+  font-weight: 600;
+  animation: fadeInUp 0.3s ease-out both;
+}
+
+.pwa-prompt > span { flex: 1; }
+
+.pwa-prompt-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.pwa-prompt-actions .btn { padding: 0.45rem 0.7rem; font-size: 0.75rem; }
+
+/* ---------- LOGIN ---------- */
+.Login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+}
+
+.Login .login-card {
+  width: min(24rem, 100%);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 1.75rem;
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 900px) {
+  .Level { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .form-row-3 { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 620px) {
+  .Home { padding-top: 1rem; }
+
+  /* Tabs become a single horizontal scroll strip rather than wrapping to two
+     or three rows -- six role tabs wrapped would eat a third of a phone
+     screen before any data is visible. */
+  .Navbar {
+    flex-wrap: wrap;
+    row-gap: 0.6rem;
+    padding-left: max(0.85rem, env(safe-area-inset-left));
+    padding-right: max(0.85rem, env(safe-area-inset-right));
+  }
+
+  .Navbar .nav-links {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  .Navbar .nav-links::-webkit-scrollbar { display: none; }
+  .Navbar .nav-links .nav-link { scroll-snap-align: start; flex: 0 0 auto; }
+
+  .Level {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+    margin-top: 0.85rem;
+  }
+
+  .level-item { padding: 0.5rem 0.15rem 0.55rem; }
+  .level-item h5 { font-size: 0.6rem; letter-spacing: 0; }
+  .level-item .delta { font-size: 0.62rem; }
+
+  .card { padding: 0.9rem; border-radius: 6px; }
+
+  .MapExplorer .panel { gap: 0.5rem; }
+  .MapExplorer .panel h2 { font-size: 1.2rem; }
+  .MapExplorer .panel .headline { font-size: 1.5rem; }
+
+  /* The back-out control must not sit under the thumb reaching for a state. */
+  .map-button { font-size: 0.68rem; padding: 0.45rem 0.6rem; }
+
+  .form-row-2,
+  .form-row-3 { grid-template-columns: 1fr; }
+
+  .data-table { font-size: 0.74rem; }
+  .data-table th { font-size: 0.6rem; padding: 0.55rem 0.35rem; }
+  .data-table td { padding: 0.45rem 0.35rem; }
+
+  /* Keep the state name pinned while the metric columns scroll sideways --
+     otherwise you scroll right and lose track of which row you are reading. */
+  .data-table th:first-child,
+  .data-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--surface);
+    min-width: 7.5rem;
+  }
+
+  .data-table tbody tr.district-row td:first-child { background: var(--surface-alt); }
+  .data-table tbody tr.total-row td:first-child { background: var(--surface-alt); }
+
+  .Timeseries { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+
+  .modal { padding: 1.25rem; }
+}
+
+@media (max-width: 380px) {
+  .Level { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .Timeseries { grid-template-columns: 1fr; }
+}
+
+/* Touch input: hover tints never un-stick on a touchscreen, and 2.25rem is
+   under the 44px minimum tap target. */
+@media (hover: none) {
+  .level-item:hover { background: transparent; }
+  .level-item.selected:hover { background: var(--stat-tint); }
+  .nav-link:hover { background: transparent; }
+  .nav-link.active:hover { background: rgba(108, 117, 125, 0.125); }
+  .data-table tbody tr.state-row:hover { background: transparent; }
+
+  .toggle,
+  .icon-button,
+  .btn,
+  .chip { min-height: 44px; }
+
+  .nav-link { padding: 0.6rem 0.75rem; }
+}
+
+/* Nobody needs the map to animate if they've asked the OS not to animate. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -2,9 +2,36 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- viewport-fit=cover lets the app paint under the iPhone notch/home bar;
+         the safe-area insets in index.css keep content clear of both. Zoom is
+         deliberately left enabled — pinching the outbreak map is useful, and
+         disabling it fails an accessibility requirement. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>PashuRaksha — Livestock Outbreak Surveillance</title>
+    <meta
+      name="description"
+      content="Field reporting and outbreak surveillance for livestock. Submit symptom reports by Pashu Aadhaar and track active disease clusters across India."
+    />
+
+    <!-- Tints the Android status bar and the iOS standalone chrome. Two values
+         so the bar matches whichever theme the dashboard is showing. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f6f7" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161625" />
+
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pashuraksha-app</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- iOS ignores the web manifest for home-screen launches and reads these. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="PashuRaksha" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   </head>
   <body>
     <div id="root"></div>
