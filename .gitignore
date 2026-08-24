@@ -1,0 +1,13 @@
+
+# Backend
+backend/__pycache__/
+backend/venv/
+backend/*.db
+*.db
+
+# Vercel CLI
+.vercel
+
+# Env files
+.env
+.env.local
