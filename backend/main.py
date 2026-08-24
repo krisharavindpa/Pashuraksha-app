@@ -1136,7 +1136,13 @@ def seed_demo_reports(
     the submit endpoint enforces.
     """
     rng = random.Random(seed)
-    animals = db.query(LivestockModel).all()
+    # order_by is load-bearing, not cosmetic: `seed` is documented as making a
+    # given dataset reproducible, but an unordered query returns rows in
+    # whatever order the database feels like. Postgres and SQLite disagree, and
+    # Postgres does not even promise stability run to run -- so the same seed
+    # picked different epicentres locally and in production. Sorting by primary
+    # key pins the RNG's input so the seed actually means something.
+    animals = db.query(LivestockModel).order_by(LivestockModel.pashu_aadhaar).all()
     if not animals:
         raise HTTPException(status_code=400, detail="Livestock registry is empty; nothing to seed against.")
 
@@ -1153,7 +1159,9 @@ def seed_demo_reports(
     # Epicentres: districts big enough to actually form a cluster. min_samples
     # for DBSCAN defaults to 3, so a district with fewer animals than that can
     # never produce one however many reports it gets.
-    eligible = [k for k, v in by_district.items() if len(v) >= 4]
+    # sorted() for the same reason as the order_by above -- dict iteration here
+    # inherits the query's order, and shuffling an unstable list is unstable.
+    eligible = sorted(k for k, v in by_district.items() if len(v) >= 4)
     rng.shuffle(eligible)
     epicentres = eligible[:hotspots]
 

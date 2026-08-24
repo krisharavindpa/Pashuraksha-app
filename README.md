@@ -43,6 +43,7 @@ Livestock early-warning & syndromic surveillance system. Farmers/vets submit sym
 │           ├── Panels.jsx       # reports / clusters / lab / admin
 │           ├── PwaPrompts.jsx   # install + update-available bars
 │           ├── Navbar.jsx, Modal.jsx
+├── scripts/reset-demo.sh        # restore demo data to a known-good state
 └── .claude/launch.json          # `npm run dev` preview config
 ```
 
@@ -205,11 +206,57 @@ disease-consistent symptom set, with the rest scattered nationally as background
 noise — dense correlated pockets against a thin diffuse baseline, which is the
 shape a real outbreak has. A 700-report seed reliably yields ~11 clusters.
 
+## Resetting demo data
+
+After a mishap, an "Clear all", or any time the dashboards come up empty:
+
+```bash
+./scripts/reset-demo.sh --api https://pashuraksha-backend.vercel.app/api/v1
+```
+
+Omit `--api` to target `http://localhost:8000/api/v1`. It prompts before
+destroying anything — type `reset` to confirm, or pass `--yes` to skip the
+prompt (CI). Needs only `curl` and `python3`.
+
+It runs four steps, all against the public API — no database access needed:
+
+1. **Delete** every report and lab sample.
+2. **Seed** 700 backdated reports over 30 days across 14 epicentre districts.
+3. **Run cluster detection** — this is the step people forget. Seeding alone
+   leaves the map with no outbreak rings, because `cluster_id` is only stamped
+   onto reports when `/analytics/clusters` runs.
+4. **File one case for `ravi_kumar`** so the farmer-facing "My Reports" tab
+   isn't empty. If the random seed already gave his animals a case, that step
+   reports it and moves on.
+
+Then it verifies non-zero totals and a multi-state spread, and fails loudly if
+either is wrong.
+
+### What it does not touch
+
+The **Pashu Aadhaar registry**. It is never deleted by any endpoint, and the
+backend re-seeds it from `livestock_registry.py` on every startup. If
+`registry-stats` ever reports 0 animals, the fix is a backend restart (redeploy,
+or any change that cold-starts the function) — not this script, which refuses to
+run against an empty registry rather than producing meaningless data.
+
+### Reproducibility
+
+The dataset is pinned to `seed=42`, so a reset produces the same epicentres,
+the same totals and the same clusters every time. That only holds because the
+seeder orders its registry query by primary key — an unordered query returns
+rows in database-dependent order, and the same seed then picked different
+epicentres on SQLite and on Neon. If you change `--seed` or `--count`, expect a
+different (but equally repeatable) dataset.
+
+Report timestamps are backdated relative to *now*, so the 30-day timeseries
+always ends today rather than at some fixed past date.
+
 ## Data persistence & recovery
 
 - Production data lives in Neon Postgres, not in Vercel — Vercel functions have no persistent disk.
 - Neon free tier: 6-hour instant point-in-time restore window. Beyond that, deleted/corrupted data is unrecoverable — `git revert` does **not** undo database changes, only code.
-- `DELETE /api/v1/reports` wipes all reports/samples, gated only by the self-reported `ADMIN` header above. The frontend puts a typed confirmation and a modal in front of it; the API does not.
+- `DELETE /api/v1/reports` wipes all reports/samples, gated only by the self-reported `ADMIN` header above. The frontend puts a typed confirmation and a modal in front of it; the API does not. Recovery is `./scripts/reset-demo.sh` — see [Resetting demo data](#resetting-demo-data).
 - The livestock registry re-seeds itself on startup, so clearing reports never destroys it.
 - Local SQLite (dev only) is `.gitignore`d and never touches production data.
 
